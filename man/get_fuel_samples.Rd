@@ -25,6 +25,10 @@ get_fuel_samples(
 
 \item{category}{The category of fuel sample to filter by (e.g., "Dead").}
 
+\item{method}{The method used to collect sample (e.g., 'Gravimetric').}
+
+\item{sub_category}{The sub category used (e.g., 'Disturbance'), rarely used.}
+
 \item{site_id}{An optional character or numeric vector of one or more site IDs.}
 
 \item{status}{An optional sample status to filter by (e.g., "Submitted", "Accepted").}

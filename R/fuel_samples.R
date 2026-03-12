@@ -9,6 +9,8 @@
 #' @param end_date The end date for the query (e.g., "2024-07-01").
 #' @param fuel_type The type of fuel sample to filter by (e.g., "1000-Hour").
 #' @param category The category of fuel sample to filter by (e.g., "Dead").
+#' @param method The method used to collect sample (e.g., 'Gravimetric').
+#' @param sub_category The sub category used (e.g., 'Disturbance'), rarely used.
 #' @param site_id An optional character or numeric vector of one or more site IDs.
 #' @param status An optional sample status to filter by (e.g., "Submitted", "Accepted").
 #' @param ... Additional GraphQL parameters (e.g., `sortBy`, `sortOrder`).
