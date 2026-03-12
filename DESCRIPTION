@@ -1,0 +1,19 @@
+Package: sofureport
+Title: Soil and Fuels Reporting  
+Version: 0.0.0.9000
+Authors@R: 
+    person("Josh", "Erickson", email = 'joshualerickson@gmail.com', role = c("aut", "cre"))
+Description: Provides functions for pulling data from API's and creating reports. 
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Imports: 
+    httr2,
+    purrr,
+    tibble,
+    dplyr
+Suggests: 
+    testthat (>= 3.0.0),
+    tidyr
+Config/testthat/edition: 3
