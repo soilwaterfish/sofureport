@@ -167,9 +167,6 @@ get_synoptic_timeseries <- function(station_ids, start_time, end_time, ob_timezo
 }
 
 
-#' @importFrom furrr future_map_dfr
-#' @importFrom future plan multisession
-NULL
 
 #' Get Long-Duration Timeseries Data from the Synoptic API via Chunking
 #'
@@ -184,6 +181,7 @@ NULL
 #' @param ... Additional parameters to pass to the API.
 #' @return A tidy, flat tibble of all weather observations across the entire time period.
 #' @export
+#' @importFrom furrr future_map_dfr
 #' @examples
 #' \dontrun{
 #'   # Get 30 days of temperature data for a station, running in parallel
