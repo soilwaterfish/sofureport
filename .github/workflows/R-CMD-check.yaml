@@ -35,6 +35,7 @@ jobs:
         # This is the crucial step where we inject the secret
         env:
           FEMS_API_KEY: ${{ secrets.FEMS_API_KEY }}
+          SYNOPTIC_TOKEN: ${{ secrets.SYNOPTIC_TOKEN }}
         run: devtools::test(reporter = "summary")
         shell: Rscript {0}
 

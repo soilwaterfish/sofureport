@@ -41,3 +41,25 @@ test_that("get_weather() handles no-data responses gracefully", {
   expect_s3_class(no_data, "data.frame")
   expect_equal(nrow(no_data), 0)
 })
+
+
+
+test_that("test get_synoptic_timeseries()", {
+
+  skip_if_no_key()
+
+  wx_data <- get_synoptic_timeseries(
+    station_ids = 'KBHK',
+    start_time = "2024-07-01 00:00",
+    end_time = "2024-07-01 12:00",
+    variables = "air_temp"
+  )
+
+  # Check 1: Is it a data frame?
+  expect_s3_class(wx_data, "data.frame")
+
+  expect_equal(wx_data$station_id[1], 'KBHK')
+
+}
+)
+

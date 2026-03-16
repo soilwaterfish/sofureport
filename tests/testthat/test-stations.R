@@ -50,3 +50,26 @@ test_that("test get_fuel_sample_sites()", {
   expect_s3_class(station_data, "data.frame")
 }
           )
+
+test_that("test get_synoptic_stations()", {
+
+  skip_if_no_key()
+
+  station_data <- get_synoptic_stations(
+             state = 'MT'
+        )
+
+  # Check 1: Is it a data frame?
+  expect_s3_class(station_data, "data.frame")
+
+  expect_equal(station_data$STID[1], 'KBHK')
+
+}
+          )
+
+
+
+
+
+
+

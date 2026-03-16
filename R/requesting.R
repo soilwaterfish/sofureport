@@ -17,7 +17,7 @@ fems_climatology_request <- function(endpoint) {
 
   httr2::request(base_url) |>
     httr2::req_auth_bearer_token(token = get_fems_api_key()) |>
-    httr2::req_user_agent("femsapi R package (https://github.com/your-repo/femsapi)") # Good practice!
+    httr2::req_user_agent("soforeport R package (https://github.com/soilwaterfish/soforeport)") # Good practice!
 }
 
 #' Base request builder for the Fuel Model GraphQL endpoint
@@ -27,5 +27,30 @@ fems_fuelmodel_request <- function() {
 
   httr2::request(base_url) |>
     httr2::req_auth_bearer_token(token = get_fems_api_key()) |>
-    httr2::req_user_agent("femsapi R package")
+    httr2::req_user_agent("soforeport R package")
+}
+
+#' Get the stored Synoptic API Token
+#' @noRd
+get_synoptic_token <- function() {
+  token <- Sys.getenv("SYNOPTIC_TOKEN")
+  if (token == "") {
+    stop("Synoptic API token not found. Please add SYNOPTIC_TOKEN to your .Renviron file.", call. = FALSE)
+  }
+  token
+}
+
+#' Base request builder for the Synoptic (MesoWest) API
+#' @noRd
+synoptic_api_request <- function(endpoint) {
+  base_url <- "https://api.synopticdata.com/v2/"
+
+  httr2::request(base_url) |>
+    httr2::req_url_path_append(endpoint) |>
+    # Add the token and units as default parameters to every request
+    httr2::req_url_query(
+      token = get_synoptic_token(),
+      units = "english" # This fulfills your US standard metrics requirement
+    ) |>
+    httr2::req_user_agent("soforeport R package (https://github.com/soilwaterfish/soforeport)")
 }
