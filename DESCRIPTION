@@ -15,7 +15,9 @@ Imports:
     dplyr,
     magrittr,
     furrr,
-    tidyr
+    tidyr,
+    terra,
+    lubridate
 Suggests: 
     testthat (>= 3.0.0),
     future
