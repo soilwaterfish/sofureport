@@ -1,9 +1,8 @@
 # In R/zentracloud_wrapper.R (replace the get_zentracloud_readings_long function)
 
 # The helper function now accepts the token as an argument
-query_one_chunk <- function(date_pair, device_sn, token) {
-  # --- THIS IS THE KEY FIX ---
-  # Set the token option *inside* the worker session before making the call
+#' @noRd
+query_one_chunk_zentra <- function(date_pair, device_sn, token) {
   zentracloud::setZentracloudOptions(token = token)
 
   zentracloud::getReadings(
@@ -25,6 +24,9 @@ query_one_chunk <- function(date_pair, device_sn, token) {
 #' @param token Your ZentraCloud API token. Defaults to the value stored in the `ZENTRACLOUD_TOKEN` environment variable.
 #' @param chunk_by A string defining the time period for each chunk (e.g., "7 days", "1 month"). Defaults to "7 days".
 #' @param parallel A logical value. If TRUE, performs API calls in parallel. Defaults to FALSE.
+#' @param cache_dir An optional path to a directory for caching results. If provided,
+#'   the function will use cached data when available, dramatically speeding up
+#'   subsequent runs.
 #' @return A tidy tibble of all successfully retrieved device readings.
 #' @export
 #' @examples
@@ -41,7 +43,8 @@ query_one_chunk <- function(date_pair, device_sn, token) {
 #' }
 get_zentracloud_readings_long <- function(device_sn, start_time, end_time,
                                           token = Sys.getenv('ZENTRACLOUD_TOKEN'),
-                                          chunk_by = "7 days", parallel = FALSE) {
+                                          chunk_by = "7 days", parallel = FALSE,
+                                          cache_dir = NULL) {
 
   if (!requireNamespace("zentracloud", quietly = TRUE)) {
     stop("The 'zentracloud' package is required for this function. Please install it.", call. = FALSE)
@@ -60,11 +63,10 @@ get_zentracloud_readings_long <- function(device_sn, start_time, end_time,
 
   message(sprintf("Querying device %s over %d time chunks...", device_sn, length(date_pairs)))
 
-  safe_query_chunk <- purrr::safely(query_one_chunk)
+  safe_query_chunk <- purrr::safely(query_one_chunk_zentra)
 
   if (parallel) {
     message("Running queries in parallel...")
-    future::plan(future::multisession)
     # --- THIS IS THE SECOND PART OF THE FIX ---
     # We now explicitly pass the `token` to each parallel worker.
     results_list <- furrr::future_map(
@@ -85,6 +87,7 @@ get_zentracloud_readings_long <- function(device_sn, start_time, end_time,
   if (num_failures > 0) {
     warning(sprintf("%d of %d API calls failed. The process continued, but some data may be missing.", num_failures, length(date_pairs)), call. = FALSE)
   }
+
 
   all_data <- dplyr::bind_rows(successful_results)
 

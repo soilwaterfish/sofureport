@@ -10,7 +10,8 @@ get_zentracloud_readings_long(
   end_time,
   token = Sys.getenv("ZENTRACLOUD_TOKEN"),
   chunk_by = "7 days",
-  parallel = FALSE
+  parallel = FALSE,
+  cache_dir = NULL
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ get_zentracloud_readings_long(
 \item{chunk_by}{A string defining the time period for each chunk (e.g., "7 days", "1 month"). Defaults to "7 days".}
 
 \item{parallel}{A logical value. If TRUE, performs API calls in parallel. Defaults to FALSE.}
+
+\item{cache_dir}{An optional path to a directory for caching results. If provided,
+the function will use cached data when available, dramatically speeding up
+subsequent runs.}
 }
 \value{
 A tidy tibble of all successfully retrieved device readings.
