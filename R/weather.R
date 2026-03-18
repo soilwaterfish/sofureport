@@ -181,6 +181,7 @@ get_synoptic_timeseries <- function(station_ids, start_time, end_time, ob_timezo
 #' @param ... Additional parameters to pass to the API.
 #' @return A tidy, flat tibble of all weather observations across the entire time period.
 #' @export
+#' @note If running in parallel make sure to call `future::plan(future::multisession)` or whatever format you like.
 #' @importFrom furrr future_map_dfr
 #' @examples
 #' \dontrun{

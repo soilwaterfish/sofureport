@@ -33,6 +33,9 @@ A tidy, flat tibble of all weather observations across the entire time period.
 Retrieves timeseries weather data over long periods by breaking the request
 into smaller, more reliable time chunks. This is designed to avoid API timeouts.
 }
+\note{
+If running in parallel make sure to call \code{future::plan(future::multisession)} or whatever format you like.
+}
 \examples{
 \dontrun{
   # Get 30 days of temperature data for a station, running in parallel

@@ -50,7 +50,8 @@ synoptic_api_request <- function(endpoint) {
     # Add the token and units as default parameters to every request
     httr2::req_url_query(
       token = get_synoptic_token(),
-      units = "english" # This fulfills your US standard metrics requirement
+      units = "english"
     ) |>
     httr2::req_user_agent("soforeport R package (https://github.com/soilwaterfish/soforeport)")
 }
+
