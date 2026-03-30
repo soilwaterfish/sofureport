@@ -68,7 +68,7 @@ get_weather <- function(station_ids, start_date, end_date, per_page = 100000000,
     variables = query_variables
   )
 
-  req <- fems_climatology_request("graphql/") |>
+  req <- fems_climatology_request() |>
     httr2::req_body_json(data = request_body)
 
   resp <- httr2::req_perform(req)

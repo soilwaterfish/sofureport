@@ -10,14 +10,22 @@ get_fems_api_key <- function() {
   key
 }
 
-#' Base request builder for the FEMS API
+
 #' @noRd
-fems_climatology_request <- function(endpoint) {
-  base_url <- "https://fems.fs2c.usda.gov/api/climatology/graphql"
+fems_climatology_request <- function() {
+  base_url <- "https://fems.fs2c.usda.gov/api/ext-climatology/graphql/"
+
+  # --- THIS IS THE FINAL AUTHENTICATION FIX ---
+  # It uses Basic Auth with the user's email and the FEMS token as the password.
+  # We assume the user has set their email in an environment variable.
+  user_email <- Sys.getenv("FEMS_EMAIL")
+  if (user_email == "") {
+    stop("FEMS user email not found. Please set FEMS_EMAIL in your .Renviron file.", call. = FALSE)
+  }
 
   httr2::request(base_url) |>
-    httr2::req_auth_bearer_token(token = get_fems_api_key()) |>
-    httr2::req_user_agent("soforeport R package (https://github.com/soilwaterfish/soforeport)") # Good practice!
+    httr2::req_auth_basic(username = user_email, password = get_fems_api_key()) |>
+    httr2::req_user_agent("sofor R package")
 }
 
 #' Base request builder for the Fuel Model GraphQL endpoint

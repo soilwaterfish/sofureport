@@ -18,9 +18,7 @@ Imports:
     tidyr,
     terra,
     lubridate,
-    readr,
-    jsonlite,
-    zentracloud
+    data.table
 Suggests: 
     testthat (>= 3.0.0),
     future

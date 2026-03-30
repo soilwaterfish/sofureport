@@ -36,6 +36,7 @@ jobs:
         env:
           FEMS_API_KEY: ${{ secrets.FEMS_API_KEY }}
           SYNOPTIC_TOKEN: ${{ secrets.SYNOPTIC_TOKEN }}
+          FEMS_EMAIL: ${{secrets.FEMS_EMAIL}}
         run: devtools::test(reporter = "summary")
         shell: Rscript {0}
 

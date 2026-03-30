@@ -83,7 +83,7 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
   )
 
   # Use our base request builder, but for the GraphQL endpoint
-  req <- fems_climatology_request("graphql/") |>
+  req <- fems_climatology_request() |>
     # Use req_body_json for POST requests
     httr2::req_body_json(data = request_body)
 
@@ -93,5 +93,13 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
   # The data is nested deep inside the GraphQL response
   nfdrs_data <- purrr::map_dfr(body$data$nfdrsObs$data, tibble::as_tibble)
 
-  return(nfdrs_data)
+  if(nrow(nfdrs_data) < 1){
+
+    nfdrs_data
+
+  } else {
+
+    nfdrs_data %>% dplyr::mutate(display_hour = lubridate::as_datetime(display_hour))
+
+  }
 }

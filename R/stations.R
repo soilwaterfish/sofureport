@@ -1,5 +1,3 @@
-# In R/stations.R
-
 #' Get Station Information from GraphQL
 #'
 #' Retrieves station metadata from the FEMS Climatology API. This function can
@@ -116,11 +114,13 @@ get_stations <- function(station_ids = NULL, state_id = NULL, has_historic_data 
     if (!is.null(body$errors)) { stop("GraphQL API returned an error: \n", body$errors[[1]]$message, call. = FALSE) }
 
     stations_data <- purrr::map_dfr(body$data$stationMetaData$data, \(x) { x[sapply(x, is.null)] <- NA; tibble::as_tibble(x) }) %>%
-                     dplyr::slice(1)
+      dplyr::slice(1)
     return(stations_data)
   }
 
 }
+
+
 
 
 # In R/synoptic.R (add this new function at the end)
