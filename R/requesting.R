@@ -63,3 +63,28 @@ synoptic_api_request <- function(endpoint) {
     httr2::req_user_agent("soforeport R package (https://github.com/soilwaterfish/soforeport)")
 }
 
+
+#' Get ZENTRA Cloud API Key
+#'
+#' @return A API token.
+#' @export
+#'
+
+get_zentracloud_apikey <- function() {
+  token <- Sys.getenv("ZENTRACLOUD_TOKEN")
+  if (token == "") {
+    stop("ZentraCloud API Key not found. Please add ZENTRACLOUD_API_KEY to your .Renviron file.", call. = FALSE)
+  }
+  token
+}
+
+
+zentracloud_v5_request <- function(token) {
+  base_url <- "https://api.zentracloud.io/v5/"
+
+  httr2::request(base_url) |>
+    httr2::req_headers("X-API-Key" = token) |>
+    httr2::req_user_agent("sofureport R package") %>%  # Make sure this matches your package name
+    httr2::req_throttle(rate = 10 / 60, realm = "api.zentracloud.io")
+
+    }

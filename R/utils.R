@@ -6,6 +6,7 @@
 #' @param data A data.frame or data.table with 'date_time', 'station_id', and 'name' columns.
 #'
 #' @return A data.table that's been aggregated to an hourly summary using the mean.
+#' @export
 #' @noRd
 wrangle_to_hourly <- function(data) {
 
