@@ -15,9 +15,6 @@ get_fems_api_key <- function() {
 fems_climatology_request <- function() {
   base_url <- "https://fems.fs2c.usda.gov/api/ext-climatology/graphql/"
 
-  # --- THIS IS THE FINAL AUTHENTICATION FIX ---
-  # It uses Basic Auth with the user's email and the FEMS token as the password.
-  # We assume the user has set their email in an environment variable.
   user_email <- Sys.getenv("FEMS_EMAIL")
   if (user_email == "") {
     stop("FEMS user email not found. Please set FEMS_EMAIL in your .Renviron file.", call. = FALSE)
@@ -55,7 +52,6 @@ synoptic_api_request <- function(endpoint) {
 
   httr2::request(base_url) |>
     httr2::req_url_path_append(endpoint) |>
-    # Add the token and units as default parameters to every request
     httr2::req_url_query(
       token = get_synoptic_token(),
       units = "english"
@@ -84,7 +80,7 @@ zentracloud_v5_request <- function(token) {
 
   httr2::request(base_url) |>
     httr2::req_headers("X-API-Key" = token) |>
-    httr2::req_user_agent("sofureport R package") %>%  # Make sure this matches your package name
+    httr2::req_user_agent("sofureport R package") %>%
     httr2::req_throttle(rate = 10 / 60, realm = "api.zentracloud.io")
 
     }

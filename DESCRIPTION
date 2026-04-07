@@ -18,7 +18,8 @@ Imports:
     tidyr,
     terra,
     lubridate,
-    data.table
+    data.table,
+    plyr
 Suggests: 
     testthat (>= 3.0.0),
     future

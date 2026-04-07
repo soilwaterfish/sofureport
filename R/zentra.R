@@ -44,11 +44,9 @@ get_zentracloud_v5_data <- function(device_id, start_datetime, end_datetime,
 
     next_token <- cleaned_body$pagination$next_token
     if (!is.null(next_token) && !is.na(next_token) && next_token != "") {
-      # Correctly modify the *base* request by adding the next_token as a query parameter
       current_req <- httr2::req_url_query(req, next_token = next_token)
       page_num <- page_num + 1
     } else {
-      # If there's no next_token, we are done. End the loop.
       current_req <- NULL
     }
   }
@@ -77,7 +75,7 @@ get_zentracloud_v5_data <- function(device_id, start_datetime, end_datetime,
 #' @export
 get_zentracloud_v5_data_long <- function(device_id, start_datetime, end_datetime,
                                          token = get_zentracloud_apikey(),
-                                         chunk_by = "7 days", parallel = FALSE, ...) {
+                                         chunk_by = "7 days", parallel = FALSE) {
 
   date_sequence <- seq(from = as.Date(start_datetime), to = as.Date(end_datetime), by = "day")
   num_days <- as.numeric(gsub("\\D", "", chunk_by))
@@ -93,7 +91,6 @@ get_zentracloud_v5_data_long <- function(device_id, start_datetime, end_datetime
 
   if (parallel) {
     message("Running queries in parallel...")
-    # --- THIS IS THE FINAL, CRITICAL FIX ---
     results_list <- furrr::future_map(
       .x = date_pairs,
       .f = ~ safe_query_chunk(
@@ -101,13 +98,11 @@ get_zentracloud_v5_data_long <- function(device_id, start_datetime, end_datetime
         start_datetime = .x$start,
         end_datetime = .x$end,
         token = token
-        # The `...` is removed from here
       ),
       .options = furrr::furrr_options(packages = "sofureport"), # Replace with your package name
       .progress = TRUE
     )
   } else {
-    # Sequential version for comparison
     results_list <- purrr::map(
       .x = date_pairs,
       .f = ~ safe_query_chunk(device_id = device_id, start_datetime = .x$start, end_datetime = .x$end, token = token)

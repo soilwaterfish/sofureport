@@ -245,7 +245,7 @@ get_synoptic_timeseries_long <- function(station_ids, start_time, end_time, chun
   }
 
   # 4. Combine all the successful data frames into one
-  all_data <- dplyr::bind_rows(successful_results)
+  all_data <- plyr::rbind.fill(successful_results)
 
   message("All chunks retrieved successfully.")
   return(all_data)

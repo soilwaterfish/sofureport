@@ -2,4 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-dev
+dev/*
+!dev/cg_bbox.gpkg
+!dev/workflow_dev.R
