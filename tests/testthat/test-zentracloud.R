@@ -20,7 +20,7 @@ test_that("get_zentracloud_v5_data() retrieves data correctly", {
   expect_s3_class(zentracloud_data, "data.frame")
 
   # Test 2: The data frame should contain rows
-  expect_gt(nrow(nfdrs_data), 0)
+  expect_gt(nrow(zentracloud_data), 0)
 
   # Test 3: The data frame must have essential columns
   expected_cols <- c("port_num", "measurement", "unit", "sensor_name", "value", "timestamp", "datetime", 'error_code')
