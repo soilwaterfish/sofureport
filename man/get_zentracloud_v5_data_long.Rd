@@ -10,8 +10,7 @@ get_zentracloud_v5_data_long(
   end_datetime,
   token = get_zentracloud_apikey(),
   chunk_by = "7 days",
-  parallel = FALSE,
-  ...
+  parallel = FALSE
 )
 }
 \arguments{

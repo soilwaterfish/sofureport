@@ -9,7 +9,7 @@
 #' @return A tibble that's been aggregated to an hourly summary using the mean. This works for precipitation because
 #' synoptic pre computes accumulation in an hour with `precip_accum_one_hour_set_1` which is the same when taking the mean.
 #' @export
-wrangle_to_hourly <- function(data, type = NULL) {
+wrangle_to_hourly <- function(data, type = 'synoptic') {
 
   dt <- data.table::copy(data)
 
@@ -51,7 +51,7 @@ wrangle_to_hourly <- function(data, type = NULL) {
     .SDcols = numeric_cols # Specify which columns are available in .SD for the loop
     ]
 
-  } else {
+  } else if (type =='synoptic') {
      # Step 4: Perform the high-speed aggregation on our copy 'dt'
   hourly_summary <- dt[, {
     summaries <- lapply(.SD, function(col) {
