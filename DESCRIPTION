@@ -9,6 +9,8 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
+    DBI,
+    RSQLite,
     httr2,
     purrr,
     tibble,
@@ -21,6 +23,7 @@ Imports:
     data.table,
     plyr
 Suggests: 
+    targets,
     testthat (>= 3.0.0),
     future
 Config/testthat/edition: 3

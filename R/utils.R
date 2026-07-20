@@ -56,12 +56,12 @@ wrangle_to_hourly <- function(data, type = 'synoptic') {
   hourly_summary <- dt[, {
     summaries <- lapply(.SD, function(col) {
       if (all(is.na(col))) {
-        list(mean = NA_real_)
+        NA_real_
       } else {
-        list(mean = mean(col, na.rm = TRUE))
+        mean(col, na.rm = TRUE)
       }
     })
-    unlist(summaries, recursive = FALSE)
+    stats::setNames(summaries, names(.SD))
   },
   by = .(station_id, date),
   .SDcols = numeric_cols
@@ -72,4 +72,66 @@ wrangle_to_hourly <- function(data, type = 'synoptic') {
 
   # Step 5: Return the new, summarized data.table
   return(dplyr::tibble(hourly_summary))
+}
+
+# Synoptic returns raw variable names (for example, `air_temp_set_1`), while
+# the existing SQLite contract stores hourly summaries as `<variable>.mean`.
+# FEMS callers already provide that suffix, so this is intentionally applied
+# only to Synoptic API output at the ingestion boundary.
+normalize_synoptic_hourly_metric_names <- function(data) {
+  identity_cols <- c("station_id", "date")
+  metric_cols <- setdiff(names(data), identity_cols)
+
+  if (!length(metric_cols)) {
+    return(data)
+  }
+
+  renamed <- ifelse(grepl("\\.mean$", metric_cols), metric_cols, paste0(metric_cols, ".mean"))
+  names(data)[match(metric_cols, names(data))] <- renamed
+  data
+}
+
+parse_api_datetime <- function(x, default_tz = "UTC", output_tz = default_tz) {
+  if (inherits(x, "POSIXt")) {
+    return(lubridate::with_tz(as.POSIXct(x), output_tz))
+  }
+
+  if (is.numeric(x)) {
+    return(lubridate::with_tz(
+      as.POSIXct(x, origin = "1970-01-01", tz = "UTC"),
+      output_tz
+    ))
+  }
+
+  values <- trimws(as.character(x))
+  values[!nzchar(values)] <- NA_character_
+
+  parsed <- rep(as.POSIXct(NA_real_, origin = "1970-01-01", tz = output_tz), length(values))
+  has_value <- !is.na(values)
+
+  if (!any(has_value)) {
+    return(parsed)
+  }
+
+  has_explicit_tz <- grepl("(Z|[+-][0-9]{2}:?[0-9]{2})$", values)
+
+  if (any(has_value & has_explicit_tz)) {
+    parsed_explicit <- suppressWarnings(
+      lubridate::ymd_hms(values[has_value & has_explicit_tz], quiet = TRUE)
+    )
+    parsed[has_value & has_explicit_tz] <- lubridate::with_tz(parsed_explicit, output_tz)
+  }
+
+  if (any(has_value & !has_explicit_tz)) {
+    parsed_local <- suppressWarnings(
+      lubridate::ymd_hms(
+        values[has_value & !has_explicit_tz],
+        tz = default_tz,
+        quiet = TRUE
+      )
+    )
+    parsed[has_value & !has_explicit_tz] <- parsed_local
+  }
+
+  parsed
 }

@@ -19,7 +19,28 @@
 #'     end_date = "2024-07-05"
 #'   )
 #' }
-get_weather <- function(station_ids, start_date, end_date, per_page = 100000000, ...) {
+normalize_fems_weather_record <- function(record) {
+  fields <- c(
+    "station_id", "observation_time", "observation_time_lst", "display_hour", "display_hour_lst", "temperature",
+    "hourly_precip", "relative_humidity", "wind_speed", "wind_direction",
+    "peak_gust_speed", "peak_gust_dir", "sol_rad", "snow_flag", "observation_type"
+  )
+
+  values <- lapply(fields, function(field) {
+    value <- record[[field]]
+    if (is.null(value) || !length(value)) NA else value
+  })
+  names(values) <- fields
+  tibble::as_tibble(values)
+}
+
+get_weather <- function(
+    station_ids,
+    start_date,
+    end_date,
+    per_page = 100000000,
+    station_tz = "America/Denver",
+    ...) {
 
   # --- THIS IS THE UPDATED QUERY, MATCHING THE WORKING PAYLOAD ---
   graphql_query <- "
@@ -35,6 +56,8 @@ get_weather <- function(station_ids, start_date, end_date, per_page = 100000000,
           station_id
           observation_time
           observation_time_lst
+          display_hour
+          display_hour_lst
           temperature
           hourly_precip
           relative_humidity
@@ -50,15 +73,15 @@ get_weather <- function(station_ids, start_date, end_date, per_page = 100000000,
     }
   "
 
-  # Convert R Date objects to the required ISO 8601 UTC timestamp format
-  start_datetime_str <- format(as.POSIXct(paste(start_date, "00:00:00")), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-  end_datetime_str <- format(as.POSIXct(paste(end_date, "23:59:59")), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  # FEMS expects the requested station-local window to include its UTC offset.
+  # Requesting UTC calendar-midnight boundaries can omit part of a local day.
+  local_window <- fems_local_query_window(start_date, end_date, station_tz)
 
   # The variables for the query, now using the correct names and format
   query_variables <- list(
     stationId = paste(station_ids, collapse = ","),
-    startDate = start_datetime_str,
-    endDate = end_datetime_str,
+    startDate = local_window$start,
+    endDate = local_window$end,
     per_page = per_page,
     ... # Pass through any other variables
   )
@@ -82,9 +105,27 @@ get_weather <- function(station_ids, start_date, end_date, per_page = 100000000,
     )
   }
 
-  weather_data <- purrr::map_dfr(body$data$weatherObs$data, tibble::as_tibble)
+  weather_records <- body$data$weatherObs$data
+  if (is.null(weather_records) || !length(weather_records)) {
+    return(tibble::tibble())
+  }
 
-  return(weather_data)
+  # Optional GraphQL fields are returned as NULL for some stations. Convert
+  # them to typed missing values before row-binding so one absent field cannot
+  # discard the full station weather response.
+  weather_data <- purrr::map_dfr(weather_records, normalize_fems_weather_record)
+
+  if (!nrow(weather_data)) {
+    return(weather_data)
+  }
+
+  weather_data %>%
+    dplyr::mutate(
+      observation_time = parse_api_datetime(.data$observation_time, default_tz = "UTC", output_tz = "UTC"),
+      observation_time_lst = parse_api_datetime(.data$observation_time_lst, default_tz = station_tz, output_tz = station_tz),
+      display_hour = parse_api_datetime(.data$display_hour, default_tz = "UTC", output_tz = "UTC"),
+      display_hour_lst = parse_api_datetime(.data$display_hour_lst, default_tz = station_tz, output_tz = station_tz)
+    )
 }
 
 #' Get Timeseries Weather Data from the Synoptic API
@@ -114,9 +155,19 @@ get_weather <- function(station_ids, start_date, end_date, per_page = 100000000,
 #' }
 get_synoptic_timeseries <- function(station_ids, start_time, end_time, ob_timezone = "UTC", ...) {
 
+  request_tz <- if (identical(tolower(ob_timezone), "local")) {
+    tz_value <- Sys.getenv("SOFU_SYNOPTIC_REQUEST_TZ", unset = "America/Denver")
+    if (!nzchar(tz_value)) "America/Denver" else tz_value
+  } else {
+    "UTC"
+  }
+
+  start_time_posix <- lubridate::with_tz(as.POSIXct(start_time, tz = request_tz), request_tz)
+  end_time_posix <- lubridate::with_tz(as.POSIXct(end_time, tz = request_tz), request_tz)
+
   # Convert R date/time objects to the required YYYYMMDDHHMM format
-  start_str <- format(as.POSIXct(start_time), "%Y%m%d%H%M")
-  end_str <- format(as.POSIXct(end_time), "%Y%m%d%H%M")
+  start_str <- format(start_time_posix, "%Y%m%d%H%M", tz = request_tz)
+  end_str <- format(end_time_posix, "%Y%m%d%H%M", tz = request_tz)
 
   # Use our new Synoptic request builder
   req <- synoptic_api_request("stations/timeseries") |>
@@ -156,9 +207,24 @@ get_synoptic_timeseries <- function(station_ids, start_time, end_time, ob_timezo
     obs_data$station_id <- station$STID
     obs_data$name <- station$NAME
     obs_data$timezone <- station$TIMEZONE
-#
-#     # The API returns timestamps as seconds since the epoch. Convert to POSIXct.
-#     obs_data$date_time <- as.POSIXct(obs_data$date_time, origin = "1970-01-01", tz = "UTC")
+
+    if ("date_time" %in% names(obs_data)) {
+      station_tz <- if (
+        identical(tolower(ob_timezone), "local") &&
+        !is.null(station$TIMEZONE) &&
+        nzchar(as.character(station$TIMEZONE))
+      ) {
+        as.character(station$TIMEZONE)
+      } else {
+        "UTC"
+      }
+
+      obs_data$date_time <- parse_api_datetime(
+        obs_data$date_time,
+        default_tz = station_tz,
+        output_tz = station_tz
+      )
+    }
 
     obs_data
   })
@@ -259,8 +325,8 @@ get_synoptic_timeseries_long <- function(station_ids, start_time, end_time, chun
 query_one_chunk <- function(date_pair, station_ids, ...) {
   get_synoptic_timeseries(
     station_ids = station_ids,
-    start_time = date_pair$start,
-    end_time = date_pair$end,
+    start_time = paste(as.character(date_pair$start), "00:00"),
+    end_time = paste(as.character(date_pair$end), "23:59"),
     ...
   )
 }

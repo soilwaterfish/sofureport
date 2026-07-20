@@ -9,7 +9,13 @@
 #' @param ... Additional GraphQL parameters (see API documentation).
 #' @return A tidy tibble of NFDRS observations.
 #' @export
-get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
+get_nfdrs <- function(
+    station_ids,
+    start_date,
+    end_date,
+    fuel_model,
+    date_time_format = "LocalStationTime",
+    ...) {
 
   graphql_query <- "
     query GetNfdrHourly(
@@ -21,7 +27,8 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
         $page: Int,
         $per_page: Int,
         $sortBy: NfdrObsSortBy,
-        $sortOrder: SortOrder
+        $sortOrder: SortOrder,
+        $dateTimeFormat: DateTimeFormat
       ) {
       nfdrsObs(
           stationIds: $stationIds,
@@ -32,7 +39,8 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
           page: $page,
           per_page: $per_page,
           sortBy: $sortBy,
-          sortOrder: $sortOrder
+          sortOrder: $sortOrder,
+          dateTimeFormat: $dateTimeFormat
         ) {
         _metadata {
           page
@@ -69,10 +77,13 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
 
   # The variables for the query
   query_variables <- list(
-    stationIds = paste(station_ids, collapse = ","),
+    # NFDRS accepts a comma-space separated station list. Unlike weatherObs,
+    # a bare comma can silently return an empty bulk response.
+    stationIds = paste(station_ids, collapse = ", "),
     startDateRange = as.character(start_date),
     endDateRange = as.character(end_date),
     fuelModel = fuel_model,
+    dateTimeFormat = date_time_format,
     ... # Pass through any other variables
   )
 
@@ -90,8 +101,35 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
   resp <- httr2::req_perform(req)
   body <- httr2::resp_body_json(resp)
 
-  # The data is nested deep inside the GraphQL response
-  nfdrs_data <- purrr::map_dfr(body$data$nfdrsObs$data, tibble::as_tibble)
+  # The data is nested deep inside the GraphQL response. The current FEMS
+  # deployment can silently return an empty result for a multi-station list;
+  # retry each station only in that failure mode rather than dropping all
+  # GSI/KBDI observations for the batch.
+  nfdrs_records <- body$data$nfdrsObs$data
+  if ((is.null(nfdrs_records) || !length(nfdrs_records)) && length(station_ids) > 1L) {
+    warning(
+      sprintf(
+        "FEMS NFDRS returned no rows for a %d-station request; retrying stations individually.",
+        length(station_ids)
+      ),
+      call. = FALSE
+    )
+    return(purrr::map_dfr(
+      as.character(station_ids),
+      function(station_id) {
+        get_nfdrs(
+          station_ids = station_id,
+          start_date = start_date,
+          end_date = end_date,
+          fuel_model = fuel_model,
+          date_time_format = date_time_format,
+          ...
+        )
+      }
+    ))
+  }
+
+  nfdrs_data <- purrr::map_dfr(nfdrs_records, tibble::as_tibble)
 
   if(nrow(nfdrs_data) < 1){
 
@@ -99,7 +137,13 @@ get_nfdrs <- function(station_ids, start_date, end_date, fuel_model, ...) {
 
   } else {
 
-    nfdrs_data %>% dplyr::mutate(display_hour = lubridate::as_datetime(display_hour))
+    nfdrs_data %>%
+      dplyr::mutate(
+        display_hour = parse_api_datetime(.data$display_hour, default_tz = "UTC", output_tz = "UTC"),
+        display_hour_lst = parse_api_datetime(.data$display_hour_lst, default_tz = "America/Denver", output_tz = "America/Denver"),
+        observation_time = parse_api_datetime(.data$observation_time, default_tz = "UTC", output_tz = "UTC"),
+        observation_time_lst = parse_api_datetime(.data$observation_time_lst, default_tz = "America/Denver", output_tz = "America/Denver")
+      )
 
   }
 }
@@ -143,7 +187,8 @@ get_nfdrs_long <- function(
     end_date,
     fuel_model,
     chunk_by = "7 days",
-    parallel = FALSE
+    parallel = FALSE,
+    date_time_format = "LocalStationTime"
 ) {
 
   start_date <- as.Date(start_date)
@@ -189,6 +234,7 @@ get_nfdrs_long <- function(
       .f = safe_query_one_nfdrs_chunk,
       station_ids = station_ids,
       fuel_model = fuel_model,
+      date_time_format = date_time_format,
       .progress = TRUE
     )
   } else {
@@ -196,7 +242,8 @@ get_nfdrs_long <- function(
       .x = date_pairs,
       .f = safe_query_one_nfdrs_chunk,
       station_ids = station_ids,
-      fuel_model = fuel_model
+      fuel_model = fuel_model,
+      date_time_format = date_time_format
     )
   }
 

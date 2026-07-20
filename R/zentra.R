@@ -9,20 +9,104 @@
 #' @param ... Additional query parameters to pass to the API.
 #' @return A tidy tibble of all readings.
 #' @export
+zentra_format_datetime <- function(value, tz = Sys.getenv("ZENTRACLOUD_QUERY_TZ", "America/Denver")) {
+  if (inherits(value, "POSIXt")) {
+    stamp <- as.POSIXct(value, tz = tz)
+  } else {
+    stamp <- as.POSIXct(value, tz = tz)
+  }
+
+  if (is.na(stamp)) {
+    stop("Unable to parse Zentra query datetime: ", value, call. = FALSE)
+  }
+
+  format(stamp, "%Y-%m-%dT%H:%M:%S%z")
+}
+
+zentra_sleep_seconds <- function(attempt, retry_after = NA_real_) {
+  base_sleep <- suppressWarnings(as.numeric(Sys.getenv("ZENTRACLOUD_RETRY_BASE_SECONDS", "60")))
+  max_sleep <- suppressWarnings(as.numeric(Sys.getenv("ZENTRACLOUD_RETRY_MAX_SECONDS", "300")))
+
+  if (!is.finite(base_sleep) || base_sleep <= 0) {
+    base_sleep <- 60
+  }
+  if (!is.finite(max_sleep) || max_sleep <= 0) {
+    max_sleep <- 300
+  }
+
+  if (is.finite(retry_after) && retry_after > 0) {
+    return(min(retry_after, max_sleep))
+  }
+
+  min(base_sleep * (2^(attempt - 1L)), max_sleep)
+}
+
+zentra_perform_request <- function(req, context = "Zentra API request") {
+  max_tries <- suppressWarnings(as.integer(Sys.getenv("ZENTRACLOUD_MAX_RETRIES", "5")))
+  if (is.na(max_tries) || max_tries < 1L) {
+    max_tries <- 5L
+  }
+
+  attempt <- 1L
+
+  repeat {
+    resp <- tryCatch(
+      httr2::req_perform(req),
+      error = identity
+    )
+
+    if (inherits(resp, "error")) {
+      if (attempt >= max_tries) {
+        stop(sprintf("%s failed after %d attempt(s): %s", context, attempt, conditionMessage(resp)), call. = FALSE)
+      }
+
+      sleep_seconds <- zentra_sleep_seconds(attempt)
+      message(sprintf("%s network error; retry %d/%d after %.0f sec.", context, attempt, max_tries, sleep_seconds))
+      Sys.sleep(sleep_seconds)
+      attempt <- attempt + 1L
+      next
+    }
+
+    status_code <- httr2::resp_status(resp)
+    if (status_code >= 200 && status_code < 300) {
+      return(resp)
+    }
+
+    if (!(status_code %in% c(408L, 425L, 429L, 500L, 502L, 503L, 504L)) || attempt >= max_tries) {
+      body_preview <- tryCatch(httr2::resp_body_string(resp), error = function(...) "")
+      stop(
+        sprintf(
+          "%s failed with HTTP %s after %d attempt(s). %s",
+          context,
+          status_code,
+          attempt,
+          body_preview
+        ),
+        call. = FALSE
+      )
+    }
+
+    retry_after <- suppressWarnings(as.numeric(httr2::resp_header(resp, "Retry-After")))
+    sleep_seconds <- zentra_sleep_seconds(attempt, retry_after = retry_after)
+    message(sprintf("%s hit HTTP %s; retry %d/%d after %.0f sec.", context, status_code, attempt, max_tries, sleep_seconds))
+    Sys.sleep(sleep_seconds)
+    attempt <- attempt + 1L
+  }
+}
+
 get_zentracloud_v5_data <- function(device_id, start_datetime, end_datetime,
                                     token = get_zentracloud_apikey(), units = "imperial", ...) {
 
-  start_str <- format(as.POSIXct(start_datetime), "%Y-%m-%dT%H:%M:%S%z")
-  end_str <- format(as.POSIXct(end_datetime), "%Y-%m-%dT%H:%M:%S%z")
+  start_str <- zentra_format_datetime(start_datetime)
+  end_str <- zentra_format_datetime(end_datetime)
 
-  # --- FIX: Pass the token to the request builder ---
   req <- zentracloud_v5_request(token = token) |>
     httr2::req_url_path_append("devices", device_id, "data") |>
-    httr2::req_url_query(direction = 'ascending',
+    httr2::req_url_query(direction = "ascending",
                          start_datetime = start_str,
                          end_datetime = end_str,
-  latest = FALSE,
-  expand = 'settings',
+                         latest = FALSE,
+                         expand = "settings",
                          units = units, ...)
 
   all_data_list <- list()
@@ -33,7 +117,16 @@ get_zentracloud_v5_data <- function(device_id, start_datetime, end_datetime,
 
   while (!is.null(current_req)) {
     message(sprintf("  - Fetching page %d...", page_num))
-    resp <- httr2::req_perform(current_req)
+    resp <- zentra_perform_request(
+      current_req,
+      context = sprintf(
+        "Zentra request for %s page %d (%s to %s)",
+        device_id,
+        page_num,
+        start_str,
+        end_str
+      )
+    )
     body <- httr2::resp_body_json(resp)
     cleaned_body <- deep_clean_list(body)
 
@@ -57,7 +150,6 @@ get_zentracloud_v5_data <- function(device_id, start_datetime, end_datetime,
   }
 
   final_data <- dplyr::bind_rows(all_data_list)
-  print(final_data)
   message("Page retrieval complete.")
   return(final_data)
 }
@@ -122,5 +214,5 @@ get_zentracloud_v5_data_long <- function(device_id, start_datetime, end_datetime
   all_data <- dplyr::bind_rows(successful_results)
 
   message("Processing complete.")
-  return(successful_results)
+  return(all_data)
 }

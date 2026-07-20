@@ -77,10 +77,22 @@ get_zentracloud_apikey <- function() {
 
 zentracloud_v5_request <- function(token) {
   base_url <- "https://api.zentracloud.io/v5/"
+  throttle_per_minute <- suppressWarnings(as.numeric(Sys.getenv("ZENTRACLOUD_THROTTLE_PER_MINUTE", "1")))
+  if (!is.finite(throttle_per_minute) || throttle_per_minute <= 0) {
+    throttle_per_minute <- 1
+  }
+  timeout_seconds <- suppressWarnings(as.numeric(Sys.getenv("ZENTRACLOUD_TIMEOUT_SECONDS", "120")))
+  if (!is.finite(timeout_seconds) || timeout_seconds <= 0) {
+    timeout_seconds <- 120
+  }
 
   httr2::request(base_url) |>
     httr2::req_headers("X-API-Key" = token) |>
-    httr2::req_user_agent("sofureport R package") %>%
-    httr2::req_throttle(rate = 10 / 60, realm = "api.zentracloud.io")
-
-    }
+    httr2::req_user_agent("sofureport R package") |>
+    httr2::req_timeout(timeout_seconds) |>
+    httr2::req_error(is_error = function(resp) FALSE) |>
+    httr2::req_throttle(
+      rate = throttle_per_minute / 60,
+      realm = "api.zentracloud.io"
+    )
+}

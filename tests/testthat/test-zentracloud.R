@@ -11,8 +11,8 @@ test_that("get_zentracloud_v5_data() retrieves data correctly", {
 
   # Use a known valid station and a short, historical date range for a stable test
   zentracloud_data <- get_zentracloud_v5_data(device_id = 'z6-32392',
-                                              start_datetime = '2026-04-01',
-                                              end_datetime = '2026-04-02',
+                                              start_datetime = '2026-07-01',
+                                              end_datetime = '2026-07-05',
                                               token = get_zentracloud_apikey())
 
 
@@ -29,4 +29,3 @@ test_that("get_zentracloud_v5_data() retrieves data correctly", {
   # Test 4: The returned fuel model should match the input
   expect_true(all(zentracloud_data[1,]$measurement == "Gust Speed"))
 })
-

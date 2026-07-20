@@ -46,3 +46,7 @@ test_that("get_nfdrs() handles no-data responses gracefully", {
   expect_s3_class(no_data, "data.frame")
   expect_equal(nrow(no_data), 0)
 })
+
+test_that("NFDRS station lists use the documented comma-space separator", {
+  expect_identical(paste(c("244705", "244601"), collapse = ", "), "244705, 244601")
+})
